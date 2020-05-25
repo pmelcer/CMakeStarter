@@ -1,8 +1,17 @@
-# init default state
-unset(3rdparty_names)
+# Initialize default state
+unset(all_3rdparty_names)
 
-set(MAGNUM_3RDPARTY_NAME	"Magnum")
-set(XXX_3RDPARTY_NAME	"xxx")
 
-list(APPEND 3rdparty_names ${MAGNUM_3RDPARTY_NAME})
-list(APPEND 3rdparty_names ${XXX_3RDPARTY_NAME})
+include( ${CONFIG_CMAKE_MACROS_PATH}/3rdPartyUtility.cmake )
+include( ${CONFIG_CMAKE_MACROS_PATH}/3rdparties/graphics.cmake )
+include( ${CONFIG_CMAKE_MACROS_PATH}/3rdparties/math.cmake )
+
+
+
+
+
+
+
+
+
+

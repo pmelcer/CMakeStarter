@@ -12,7 +12,7 @@ function(run_scanning_3rdParty)
         return()
     endif()
 
-    option( BUILD_USE_LIBRARIES_FROM_BUILD_INFO "Should be used 3rdParty library from build_info.txt" OFF)
+    option( BUILD_USE_3RDPARTIES_FROM_BUILD_INFO "Should be used 3rdParty library from build_info.txt" OFF)
 
     checkPath()
     
@@ -26,50 +26,37 @@ function(run_scanning_3rdParty)
 
     list(LENGTH PATH_SUBDIRS len)
     if(${len} LESS 1)
-        message(FATAL_ERROR "${CONFIG_PATH_TO_CUSTOM_3RDPARTY} not contains any folder.")
+        message("${CONFIG_PATH_TO_3RDPARTY} ${CONFIG_PATH_TO_CUSTOM_3RDPARTY} not contains any folder.")
+        return()
     endif()
 
     list(SORT ALL_SUBDIRS)
 
-    set(library_names "")
-    set(current_library_name "")
+    set(3rdParty_names "")
+    set(current_3rdParty_name "")
 
-    # Detect the same libraries
-    detect_libraries()
+    # Detect the same 3rdParties
+    detect_3rdParties()
 
     # Scan build info
 	scan_build_info()
 
     delete_detected_3rdparty()	
 
+    foreach(3rdParty ${3rdParty_names})
 
-    foreach(library ${library_names})
+        sort_libs_version("${3rdParty}_property_string")
+        
+        resolve_experimental_suffix()
 
-    sort_libs_version("${library}_property_string")
-        set(previous_value_is_experimental FALSE)
-        list(FIND backup_names LIBRARY_${library} index)
-        if(${index} GREATER "-1")   
-            list(GET backup_values ${index} previous_value)
-                    
-            string(FIND ${previous_value} "experimental" result)
-
-            if(${result} GREATER "-1")
-                set(previous_value_is_experimental TRUE)
-            endif()       
-        endif()
-
-
-        list(FIND ${library}_property_string "${previous_value}" index2)
-
+        list(FIND ${3rdParty}_property_string "${previous_value}" index2)
 
         set(missing_previous_value FALSE)
 		if("${index2}" EQUAL "-1") 
             set(missing_previous_value TRUE)
         endif()
 
-
-
-        set(tmp_property_list ${${library}_property_string})
+        set(tmp_property_list ${${3rdParty}_property_string})
 		list(REVERSE tmp_property_list)
 			
 		foreach(item ${tmp_property_list})
@@ -86,7 +73,6 @@ function(run_scanning_3rdParty)
 				break()
 			endif()		
 		endforeach()
-
 
         if(${missing_previous_value} STREQUAL "FALSE" AND NOT "${previous_value}" STREQUAL "")
             set(final_value ${previous_value})
@@ -110,116 +96,126 @@ function(run_scanning_3rdParty)
         if(NOT "${previous_value}" STREQUAL "" AND NOT "${previous_value_is_experimental}" STREQUAL "TRUE")
         
             if(NOT "${previous_value}" STREQUAL "${new_regular_value}") 
-                set(newer_libraries_alert TRUE PARENT_SCOPE)
+                set(newer_3rdParties_alert TRUE PARENT_SCOPE)
             
-                list(APPEND newer_libraries_list "${library}")
+                list(APPEND newer_3rdParties_list "${3rdParty}")
             endif()
         
         elseif(NOT "${previous_value}" STREQUAL "")
         
             if("${previous_value_version}" VERSION_LESS_EQUAL "${new_regular_value_version}")  
-                set(newer_libraries_alert TRUE PARENT_SCOPE)
+                set(newer_3rdParties_alert TRUE PARENT_SCOPE)
             
-                list(APPEND newer_libraries_list "experimental ${library}")
+                list(APPEND newer_3rdParties_list "experimental ${3rdParty}")
 
             elseif(NOT "${previous_value}" STREQUAL "${new_experimental_value}" AND "${previous_value_version}" VERSION_LESS "${new_experimental_value_version}")    
 
-                set(newer_libraries_alert TRUE PARENT_SCOPE)
+                set(newer_3rdParties_alert TRUE PARENT_SCOPE)
             
-                list(APPEND newer_libraries_list "${library}")
+                list(APPEND newer_3rdParties_list "${3rdParty}")
             endif()
 
         endif()
 
-        set(LIBRARY_${library} "${final_value}" CACHE STRING "")
-        set_property(CACHE LIBRARY_${library} PROPERTY STRINGS "${${library}_property_string}")
-        mark_as_advanced(CLEAR LIBRARY_${library})
+        set(3RDPARTY_${3rdParty} "${final_value}" CACHE STRING "")
+        set_property(CACHE 3RDPARTY_${3rdParty} PROPERTY STRINGS "${${3rdParty}_property_string}")
+        mark_as_advanced(CLEAR 3RDPARTY_${3rdParty})
         unset(previous_value)
         unset(new_regular_value)
         unset(new_experimental_value)
 
-        list(APPEND detected_libs LIBRARY_${library})	
+        list(APPEND detected_libs 3RDPARTY_${3rdParty})	
 
     endforeach()
 
 
-    set(newer_libraries_list "${newer_libraries_list}" PARENT_SCOPE)
-    set(previously_detected_libs ${detected_libs} CACHE INTERNAL "")
+    set(newer_3rdParties_list "${newer_3rdParties_list}" PARENT_SCOPE)
+    set(previously_detected_3rdparty ${detected_libs} CACHE INTERNAL "")
 
-    foreach(library ${library_names})
-        set(${library}_FOUND TRUE CACHE INTERNAL "")
+    foreach(3rdParty ${3rdParty_names})
+        set(${3rdParty}_FOUND TRUE CACHE INTERNAL "")
 
-        string(TOUPPER ${library} capitalized_name)
+        string(TOUPPER ${3rdParty} capitalized_name)
         set(${capitalized_name}_FOUND TRUE CACHE INTERNAL "")
 
-        if("${LIBRARY_${library}}" IN_LIST PATH_SUBDIRS)            
+        if("${3RDPARTY_${3rdParty}}" IN_LIST PATH_SUBDIRS)            
             set(PATH_TO_LIB "${CONFIG_PATH_TO_3RDPARTY}")
         else()
             set(PATH_TO_LIB "${CONFIG_PATH_TO_CUSTOM_3RDPARTY}")
         endif()
 
-        message("${PATH_SUBDIRS}")
+        set(${3rdParty}_INCLUDE_DIRS "${PATH_TO_LIB}/${3RDPARTY_${3rdParty}}/include" CACHE INTERNAL "")
+        set(${3rdParty}_3RDPARTY_DIRS "${PATH_TO_LIB}/${3RDPARTY_${3rdParty}}/lib" CACHE INTERNAL "")
+        set(${3rdParty}_BINARY_DIRS  "${PATH_TO_LIB}/${3RDPARTY_${3rdParty}}/bin" CACHE INTERNAL "")
 
+        set(${3rdParty}_PATH "${PATH_TO_LIB}/${3RDPARTY_${3rdParty}}" CACHE INTERNAL "")
 
-        set(${library}_INCLUDE_DIRS "${PATH_TO_LIB}/${LIBRARY_${library}}/include" CACHE INTERNAL "")
-        set(${library}_LIBRARY_DIRS "${PATH_TO_LIB}/${LIBRARY_${library}}/lib" CACHE INTERNAL "")
-        set(${library}_BINARY_DIRS  "${PATH_TO_LIB}/${LIBRARY_${library}}/bin" CACHE INTERNAL "")
-
-        set(${library}_PATH "${PATH_TO_LIB}/${LIBRARY_${library}}" CACHE INTERNAL "")
-
-        FILELIST(tmp ${${library}_LIBRARY_DIRS})
-
+        FILELIST(tmp ${${3rdParty}_3RDPARTY_DIRS})
         foreach(filename ${tmp})
             string(REGEX MATCH "^.*\\.lib$" result ${filename})
 
             if(NOT result STREQUAL "")
-                list(APPEND ${library}_all_LIBRARIES ${filename})
+                list(APPEND ${3rdParty}_all_3RDPARTIES ${filename})
             endif()
             set(result "")
         endforeach()
 
-        list(LENGTH ${library}_all_LIBRARIES length)
+        list(LENGTH ${3rdParty}_all_3RDPARTIES length)
         if(${length} GREATER "0")
-            list(SORT ${library}_all_LIBRARIES) 
+            list(SORT ${3rdParty}_all_3RDPARTIES) 
         endif()   
 
-        foreach(filename ${${library}_all_LIBRARIES})
-            string(REGEX MATCH "^.*d\\.lib$" result ${filename})
-                
-            if(result STREQUAL "")
-                list(APPEND ${library}_optimized_LIBRARIES ${filename})
-            else()			
-                list(APPEND ${library}_debug_LIBRARIES ${filename})
+        foreach(filename ${${3rdParty}_all_3RDPARTIES})
+
+            set(is_all_name False)
+
+            foreach(3rdname ${all_3rdparty_names})
+                string(TOLOWER ${3rdname} 3rdname_lower)
+                string(TOLOWER ${filename} filename_lower)
+
+                if("${3rdname_lower}.lib" STREQUAL ${filename_lower})
+                    set(is_all_name True)
+                    break()
+                endif()
+            endforeach()
+
+            if(NOT is_all_name)
+                string(REGEX MATCH "^.*d\\.lib$" result ${filename})
             endif()
-        
+            if(result STREQUAL "")
+                list(APPEND ${3rdParty}_optimized_3RDPARTIES ${filename})
+            else()			
+                list(APPEND ${3rdParty}_debug_3RDPARTIES ${filename})
+            endif()
+
             # Debug dd.lib vs d.lib optimized cases
             string(REGEX REPLACE "^(.*d)d\\.lib$" "\\1" dd_result ${filename})
 
             if(NOT dd_result STREQUAL "" AND NOT ${dd_result} STREQUAL ${filename})
-                list(REMOVE_ITEM ${library}_debug_LIBRARIES "${dd_result}.lib")
-                list(APPEND ${library}_optimized_LIBRARIES "${dd_result}.lib")
+                list(REMOVE_ITEM ${3rdParty}_debug_3RDPARTIES "${dd_result}.lib")
+                list(APPEND ${3rdParty}_optimized_3RDPARTIES "${dd_result}.lib")
             endif()
             
             set(dd_result "")
             set(result "")
         endforeach()
 
-        foreach(filename ${${library}_optimized_LIBRARIES})
+        foreach(filename ${${3rdParty}_optimized_3RDPARTIES})
     
-            contains_debug_lib(result debug_name ${filename} ${library}_debug_LIBRARIES)
+            contains_debug_lib(result debug_name ${filename} ${3rdParty}_debug_3RDPARTIES)
         
             if(${result} STREQUAL "FALSE")
-                list(APPEND ${library}_LIBRARIES "general" ${filename})		#all configurations
+                list(APPEND ${3rdParty}_3RDPARTIES "general" ${filename})		#all configurations
             else()
-                list(APPEND ${library}_LIBRARIES "optimized" ${filename})	#all except debug
-                list(APPEND ${library}_LIBRARIES "debug" ${debug_name})		#only for debug
+                list(APPEND ${3rdParty}_3RDPARTIES "optimized" ${filename})	#all except debug
+                list(APPEND ${3rdParty}_3RDPARTIES "debug" ${debug_name})		#only for debug
             endif()
         
             set(result "")
             set(debug_name "")
 
         endforeach()    
-        set(${library}_LIBRARIES ${${library}_LIBRARIES} PARENT_SCOPE)
+        set(${3rdParty}_3RDPARTIES ${${3rdParty}_3RDPARTIES} PARENT_SCOPE)
 
     endforeach()
 endfunction(run_scanning_3rdParty)
